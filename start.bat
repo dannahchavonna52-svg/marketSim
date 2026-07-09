@@ -32,6 +32,6 @@ ipconfig | findstr /i "IPv4"
 echo.
 echo If the phone cannot open it, check same Wi-Fi and Windows Firewall.
 echo.
-"%PYTHON_EXE%" -m uvicorn main:app --host 0.0.0.0 --port 8000
+"%PYTHON_EXE%" -m uvicorn main_ai:app --host 0.0.0.0 --port 8000
 
 pause
