@@ -1,13 +1,15 @@
 # backend/ai_backtester
 
-这是 MarketSim 的 AI 基金回测实验模块。
+这是 MarketSim 的 AI 基金回测模块。
 
-当前阶段是最小可用骨架：
+当前阶段已经完成：
 
 - 不连接券商；
 - 不真实交易；
 - 不提供投资建议；
-- 只根据历史净值做模拟回测。
+- 根据历史净值做模拟回测；
+- 后端 service/router 已准备好；
+- 前端 `ai-backtest.js` 已接入页面，后端未挂载时会自动使用前端同款规则回测。
 
 ## 代码结构
 
@@ -16,8 +18,55 @@ backend/ai_backtester/
 ├── __init__.py
 ├── models.py   # 数据模型
 ├── signals.py  # 规则信号，后续可替换为 AI Agent
-└── engine.py   # 回测引擎
+├── engine.py   # 回测引擎
+├── service.py  # 复用 rich_fund_data 获取净值并运行回测
+├── routes.py   # FastAPI router，等待挂载到 main.py
+└── README.md
 ```
+
+## 当前前端功能
+
+`frontend/ai-backtest.js` 会在登录后的底部导航自动增加“回测”入口。
+
+页面支持：
+
+- 基金代码；
+- 开始日期 / 结束日期；
+- 初始资金；
+- 单次买入金额；
+- 最大仓位；
+- 买入费率；
+- 卖出费率；
+- 刷新数据；
+- 资产曲线；
+- 交易记录；
+- 最近 20 个交易日资产明细。
+
+前端会先尝试请求：
+
+```text
+POST /api/ai-backtest/run
+```
+
+如果后端 router 还没有挂载，会自动退回到前端规则回测，直接复用现有：
+
+```text
+GET /api/funds/{symbol}
+```
+
+所以即使 Codex 还没挂后端路由，页面也可以先跑通。
+
+## 后端挂载方式
+
+在 `backend/main.py` 增加两行即可：
+
+```python
+from ai_backtester.routes import router as ai_backtest_router
+
+app.include_router(ai_backtest_router)
+```
+
+建议把 import 放在其他业务 import 附近，把 `include_router` 放在 `app = FastAPI(...)` 和 CORS 配置之后、路由定义之前。
 
 ## 最小调用示例
 
@@ -56,25 +105,13 @@ print(result.to_dict())
 
 这只是为了先把回测链路跑通，不代表最终策略。
 
-## 下一步接入 MarketSim
+## 现在留给 Codex 的细化工作
 
-建议 Codex 下一步执行：
-
-1. 找到现有基金净值获取函数；
-2. 新增一个 adapter，把现有净值数据转换成 `FundNavPoint`；
-3. 新增 FastAPI 路由：
-
-```text
-POST /api/ai-backtest/run
-```
-
-4. 前端新增“AI 回测”页面，展示：
-
-- 总收益率；
-- 最大回撤；
-- 交易记录；
-- 每日资产曲线；
-- 每次买卖原因。
+1. 把 `ai_backtester.routes` 挂载进 `backend/main.py`；
+2. 本地启动后确认 `/api/ai-backtest/run` 返回成功；
+3. 根据真实页面宽度微调 `AI 基金回测` 表单样式；
+4. 视需要把前端 fallback 关闭，全部改用后端接口；
+5. 后续再把 `signals.py` 升级成多 Agent 或 LLM 复盘。
 
 ## 注意
 
