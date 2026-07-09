@@ -12,9 +12,11 @@ from .models import (
     FundNavPoint,
     TradeRecord,
 )
+from .service import run_ai_backtest_for_fund
 
 __all__ = [
     "run_backtest",
+    "run_ai_backtest_for_fund",
     "BacktestConfig",
     "BacktestResult",
     "DailyPortfolioPoint",
