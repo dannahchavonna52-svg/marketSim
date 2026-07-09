@@ -10,6 +10,33 @@
 - 回测引擎；
 - 前后端分离展示。
 
+## 当前完成状态
+
+已经完成大部分可运行骨架：
+
+- `backend/ai_backtester/models.py`：数据模型；
+- `backend/ai_backtester/signals.py`：规则信号；
+- `backend/ai_backtester/engine.py`：回测引擎；
+- `backend/ai_backtester/service.py`：接入现有 `rich_fund_data` 净值数据；
+- `backend/ai_backtester/routes.py`：后端 API router；
+- `frontend/ai-backtest.js`：前端“回测”页面与浏览器端 fallback 回测；
+- `frontend/index.html`：加载 AI 回测模块；
+- `docs/CODEX_REMAINING_TASKS.md`：剩余联调任务。
+
+前端现在会优先请求：
+
+```text
+POST /api/ai-backtest/run
+```
+
+如果后端 router 暂未挂载，会自动使用现有：
+
+```text
+GET /api/funds/{symbol}
+```
+
+并在浏览器中使用同款规则完成回测。
+
 ## 为什么不直接 Fork 原项目
 
 `virattt/ai-hedge-fund` 默认面向美股股票，依赖：
@@ -33,22 +60,26 @@
 
 ## 第一阶段目标
 
-先做一个不影响现有功能的后端子模块：
+第一阶段目标已经基本完成：
 
 ```text
 backend/ai_backtester/
 ├── __init__.py
 ├── models.py
 ├── signals.py
-└── engine.py
+├── engine.py
+├── service.py
+├── routes.py
+└── README.md
 ```
 
-第一阶段只实现：
+已实现：
 
 1. 接收基金净值序列；
 2. 根据简单技术信号生成买入 / 卖出 / 持有；
 3. 执行简化回测；
-4. 输出每日资产曲线、交易记录、总收益率、最大回撤。
+4. 输出每日资产曲线、交易记录、总收益率、最大回撤；
+5. 前端页面展示结果。
 
 暂时不做：
 
@@ -60,10 +91,15 @@ backend/ai_backtester/
 
 ## 第二阶段目标
 
-接入现有 `marketSim` 的数据层：
+后端 router 已经写好，只需要把它挂进 `backend/main.py`：
 
-- 复用已有 AKShare 基金搜索 / 净值数据；
-- 新增回测 API，例如：
+```python
+from ai_backtester.routes import router as ai_backtest_router
+
+app.include_router(ai_backtest_router)
+```
+
+接口：
 
 ```text
 POST /api/ai-backtest/run
@@ -77,7 +113,10 @@ POST /api/ai-backtest/run
   "start_date": "2024-01-01",
   "end_date": "2026-07-01",
   "initial_cash": 100000,
-  "trade_amount": 10000
+  "trade_amount": 10000,
+  "max_position_ratio": 0.8,
+  "buy_fee_rate": 0.001,
+  "sell_fee_rate": 0.005
 }
 ```
 
@@ -123,7 +162,7 @@ POST /api/ai-backtest/run
 
 | 原项目模块 | 本项目对应改造 |
 |---|---|
-| `src/tools/api.py` | `backend/fund_data.py` 或后续 `backend/ai_backtester/data_adapter.py` |
+| `src/tools/api.py` | `backend/rich_fund_data.py` + `backend/ai_backtester/service.py` |
 | `technical_analyst` | `backend/ai_backtester/signals.py` |
 | `risk_manager` | 后续 `backend/ai_backtester/risk.py` |
 | `portfolio_manager` | 后续 `backend/ai_backtester/portfolio_manager.py` |
@@ -139,4 +178,10 @@ POST /api/ai-backtest/run
 feature/ai-fund-backtester
 ```
 
-该分支只新增文件，不修改现有主功能。确认可用后，再逐步接入 FastAPI 路由和前端页面。
+PR：
+
+```text
+#1 Add AI fund backtester scaffold
+```
+
+该分支主要新增文件，并只对 `frontend/index.html` 做了脚本加载修改。确认可用后，再把后端 router 挂载进主应用。
