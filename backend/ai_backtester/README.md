@@ -8,21 +8,63 @@
 - 不真实交易；
 - 不提供投资建议；
 - 根据历史净值做模拟回测；
-- 后端 service/router 已准备好；
-- 前端 `ai-backtest.js` 已接入页面，后端未挂载时会自动使用前端同款规则回测。
+- 后端 service/router 已完成；
+- `backend/main_ai.py` 已挂载回测接口；
+- 前端 `ai-backtest.js` 已接入页面；
+- 后端异常时，前端可自动使用同款规则 fallback；
+- 已提供竖屏视频演示模式。
 
 ## 代码结构
 
 ```text
 backend/ai_backtester/
 ├── __init__.py
-├── models.py   # 数据模型
-├── signals.py  # 规则信号，后续可替换为 AI Agent
-├── engine.py   # 回测引擎
-├── service.py  # 复用 rich_fund_data 获取净值并运行回测
-├── routes.py   # FastAPI router，等待挂载到 main.py
+├── models.py        # 数据模型
+├── signals.py       # 规则信号，后续可替换为 AI Agent
+├── engine.py        # 回测引擎和仓位控制
+├── service.py       # 复用 rich_fund_data 获取净值并运行回测
+├── routes.py        # POST /api/ai-backtest/run
+├── smoke_check.py   # 本地冒烟检查
 └── README.md
 ```
+
+## 启动方式
+
+项目根目录双击：
+
+```text
+start.bat
+```
+
+或者：
+
+```powershell
+cd backend
+python -m uvicorn main_ai:app --host 0.0.0.0 --port 8000
+```
+
+打开：
+
+```text
+http://127.0.0.1:8000
+```
+
+## 冒烟检查
+
+在 `backend` 目录执行：
+
+```powershell
+python -m ai_backtester.smoke_check
+```
+
+该检查不依赖真实基金数据源，会验证：
+
+- 回测引擎可以运行；
+- 最大仓位不会被突破；
+- 收益曲线可以生成；
+- AI 回测 API 路由存在；
+- 新增前端静态资源路由存在；
+- 视频演示资源文件存在。
 
 ## 当前前端功能
 
@@ -42,31 +84,41 @@ backend/ai_backtester/
 - 交易记录；
 - 最近 20 个交易日资产明细。
 
-前端会先尝试请求：
+前端优先请求：
 
 ```text
 POST /api/ai-backtest/run
 ```
 
-如果后端 router 还没有挂载，会自动退回到前端规则回测，直接复用现有：
+如果后端接口异常，会自动退回到前端规则回测，并复用：
 
 ```text
 GET /api/funds/{symbol}
 ```
 
-所以即使 Codex 还没挂后端路由，页面也可以先跑通。
+fallback 的作用是避免演示期间直接白屏，不代表可以跳过后端联调。
 
-## 后端挂载方式
+## 视频演示模式
 
-在 `backend/main.py` 增加两行即可：
+录屏地址：
 
-```python
-from ai_backtester.routes import router as ai_backtest_router
-
-app.include_router(ai_backtest_router)
+```text
+http://127.0.0.1:8000/?demo=1&fund=014855&focus=1
 ```
 
-建议把 import 放在其他业务 import 附近，把 `include_router` 放在 `app = FastAPI(...)` 和 CORS 配置之后、路由定义之前。
+或者双击：
+
+```text
+start-demo.bat
+```
+
+演示模式会遮挡账号、聚焦回测页面，并优化手机竖屏录制布局。
+
+更多说明：
+
+```text
+docs/VIDEO_DEMO_PLAN.md
+```
 
 ## 最小调用示例
 
@@ -101,18 +153,28 @@ print(result.to_dict())
 - 20 日均线；
 - 60 日均线；
 - 近 60 日回撤风控；
-- 只允许 `buy`、`sell`、`hold`。
+- 只允许 `buy`、`sell`、`hold`；
+- 买入金额会被最大仓位上限精确截断。
 
-这只是为了先把回测链路跑通，不代表最终策略。
+这只是为了先把回测链路跑通，不代表最终策略，也不代表真正的 AI 预测。
 
-## 现在留给 Codex 的细化工作
+## 留给 Codex 的工作
 
-1. 把 `ai_backtester.routes` 挂载进 `backend/main.py`；
-2. 本地启动后确认 `/api/ai-backtest/run` 返回成功；
-3. 根据真实页面宽度微调 `AI 基金回测` 表单样式；
-4. 视需要把前端 fallback 关闭，全部改用后端接口；
-5. 后续再把 `signals.py` 升级成多 Agent 或 LLM 复盘。
+Codex 只需完成：
+
+1. 在用户本地运行冒烟检查；
+2. 启动 `main_ai:app`；
+3. 测试真实基金数据源；
+4. 测试普通模式和演示模式；
+5. 修复本地环境、导入、路径或样式兼容问题；
+6. 输出完整测试报告。
+
+具体清单：
+
+```text
+docs/CODEX_REMAINING_TASKS.md
+```
 
 ## 注意
 
-第一阶段先不要接大模型。先让规则回测稳定跑通，再把 `signals.py` 替换成多 Agent 决策。
+第一阶段先不要接大模型。先让规则回测稳定跑通，再把 `signals.py` 替换成多 Agent 决策或增加 LLM 复盘解释。
