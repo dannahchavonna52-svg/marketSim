@@ -3,7 +3,7 @@ setlocal
 cd /d "%~dp0"
 
 set "PYTHON_EXE=python"
-if exist "backend\.venv\Scripts\python.exe" set "PYTHON_EXE=backend\.venv\Scripts\python.exe"
+if exist "backend\.venv\Scripts\python.exe" set "PYTHON_EXE=%CD%\backend\.venv\Scripts\python.exe"
 
 echo.
 echo [1/3] Checking Python syntax...
@@ -12,13 +12,10 @@ if errorlevel 1 goto :failed
 
 echo [2/3] Running AI backtester smoke check...
 pushd backend
-"..\%PYTHON_EXE%" -m ai_backtester.smoke_check 2>nul
+"%PYTHON_EXE%" -m ai_backtester.smoke_check
 if errorlevel 1 (
-  "%PYTHON_EXE%" -m ai_backtester.smoke_check
-  if errorlevel 1 (
-    popd
-    goto :failed
-  )
+  popd
+  goto :failed
 )
 popd
 
