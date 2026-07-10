@@ -10,6 +10,10 @@
   document.body.classList.add("video-demo-mode");
   if (focusMode) document.body.classList.add("video-focus-mode");
 
+  function setTextIfChanged(element, text) {
+    if (element && element.textContent !== text) element.textContent = text;
+  }
+
   function installDemoBadge() {
     if (document.querySelector("#videoDemoBadge")) return;
     const badge = document.createElement("div");
@@ -20,14 +24,12 @@
   }
 
   function maskPrivateUi() {
-    const userBadge = document.querySelector("#userBadge");
-    if (userBadge) userBadge.textContent = "演示账号";
-
-    const title = document.querySelector(".app-header h1");
-    if (title) title.textContent = "AI 基金回测实验室";
-
-    const subtitle = document.querySelector(".app-header p");
-    if (subtitle) subtitle.textContent = "输入基金代码，查看历史策略回测、收益曲线和回撤风险。";
+    setTextIfChanged(document.querySelector("#userBadge"), "演示账号");
+    setTextIfChanged(document.querySelector(".app-header h1"), "AI 基金回测实验室");
+    setTextIfChanged(
+      document.querySelector(".app-header p"),
+      "输入基金代码，查看历史策略回测、收益曲线和回撤风险。"
+    );
   }
 
   function installDemoHero() {
@@ -92,12 +94,15 @@
     setTimeout(activateDemoPage, 120);
   });
 
-  const observer = new MutationObserver(() => {
-    if (document.querySelector("#aiBacktestForm")) {
-      activateDemoPage();
-    }
-  });
-  observer.observe(document.documentElement, { childList: true, subtree: true });
+  if (!document.querySelector("#aiBacktestForm")) {
+    const observer = new MutationObserver(() => {
+      if (document.querySelector("#aiBacktestForm")) {
+        observer.disconnect();
+        activateDemoPage();
+      }
+    });
+    observer.observe(document.documentElement, { childList: true, subtree: true });
+  }
 
   installDemoBadge();
   maskPrivateUi();
