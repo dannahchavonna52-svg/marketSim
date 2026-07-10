@@ -33,6 +33,48 @@ def _position_ratio(cash: float, units: float, nav: float) -> float:
     return units * nav / total
 
 
+def _validate_config(config: BacktestConfig) -> None:
+    if config.initial_cash <= 0:
+        raise ValueError("初始资金必须大于 0")
+    if config.trade_amount <= 0:
+        raise ValueError("单次交易金额必须大于 0")
+    if not 0 < config.max_position_ratio <= 1:
+        raise ValueError("最大仓位必须在 0 到 1 之间")
+    if not 0 <= config.buy_fee_rate < 1:
+        raise ValueError("买入费率必须在 0 到 1 之间")
+    if not 0 <= config.sell_fee_rate < 1:
+        raise ValueError("卖出费率必须在 0 到 1 之间")
+    if config.min_hold_days < 0:
+        raise ValueError("最短持有天数不能小于 0")
+
+
+def _max_buy_amount_by_position(
+    *,
+    cash: float,
+    units: float,
+    nav: float,
+    max_position_ratio: float,
+    buy_fee_rate: float,
+) -> float:
+    """Return the largest gross buy amount that stays inside the position cap.
+
+    The fee is paid from the gross order amount, so it reduces both cash and
+    total equity. The formula accounts for that instead of only checking the
+    position ratio before the trade.
+    """
+
+    total_value = cash + units * nav
+    current_market_value = units * nav
+    remaining_target_value = max_position_ratio * total_value - current_market_value
+    if remaining_target_value <= 0:
+        return 0.0
+
+    denominator = 1 - buy_fee_rate * (1 - max_position_ratio)
+    if denominator <= 0:
+        return 0.0
+    return max(0.0, remaining_target_value / denominator)
+
+
 def run_backtest(
     nav_points: list[FundNavPoint | dict],
     config: BacktestConfig,
@@ -46,14 +88,17 @@ def run_backtest(
     - No real trading, only simulation.
     """
 
+    _validate_config(config)
+
     normalized_points = [
         item if isinstance(item, FundNavPoint) else FundNavPoint.from_dict(item)
         for item in nav_points
     ]
+    normalized_points = [item for item in normalized_points if item.unit_nav > 0]
     normalized_points.sort(key=lambda x: x.trade_date)
 
     if len(normalized_points) < 2:
-        raise ValueError("回测至少需要 2 条基金净值数据")
+        raise ValueError("回测至少需要 2 条有效基金净值数据")
 
     cash = float(config.initial_cash)
     units = 0.0
@@ -83,11 +128,18 @@ def run_backtest(
                     reasoning="现金不足，无法买入",
                 )
             else:
-                amount = min(config.trade_amount, cash)
+                position_limit_amount = _max_buy_amount_by_position(
+                    cash=cash,
+                    units=units,
+                    nav=nav,
+                    max_position_ratio=config.max_position_ratio,
+                    buy_fee_rate=config.buy_fee_rate,
+                )
+                amount = min(config.trade_amount, cash, position_limit_amount)
                 fee = amount * config.buy_fee_rate
                 net_amount = max(0.0, amount - fee)
                 bought_units = net_amount / nav if nav > 0 else 0.0
-                if bought_units > 0:
+                if bought_units > 1e-12:
                     cash -= amount
                     units += bought_units
                     last_buy_index = index
@@ -104,6 +156,12 @@ def run_backtest(
                             units_after=units,
                             reasoning=signal.reasoning,
                         )
+                    )
+                else:
+                    signal = AgentSignal(
+                        action="hold",
+                        confidence=80,
+                        reasoning="剩余可买额度不足，维持当前仓位",
                     )
 
         elif action == "sell":
@@ -126,6 +184,7 @@ def run_backtest(
                 net_amount = max(0.0, gross_amount - fee)
                 cash += net_amount
                 units = 0.0
+                last_buy_index = None
                 trades.append(
                     TradeRecord(
                         trade_date=point.trade_date,
