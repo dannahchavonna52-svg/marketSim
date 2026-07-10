@@ -1,108 +1,191 @@
-# Codex 剩余细化任务
+# Codex 最后联调任务
 
-本分支已经完成了 AI 基金回测的大部分骨架、前端接入和可试用启动入口。Codex 主要只需要做本地联调和少量细化。
+本分支已经完成 AI 基金回测的核心代码、前端页面、启动入口、风险控制和视频演示模式。Codex 现在只需要在用户本地电脑上完成运行验证与少量兼容修复，不要重新设计整个项目。
 
 ## 已完成
 
-- 新增 `backend/ai_backtester/models.py`：基金净值、信号、交易记录、资产曲线、回测结果模型；
-- 新增 `backend/ai_backtester/signals.py`：20/60 日均线 + 回撤风控规则；
-- 新增 `backend/ai_backtester/engine.py`：简化基金回测引擎；
-- 新增 `backend/ai_backtester/service.py`：复用 `rich_fund_data.get_fund_detail()` 获取历史净值并运行回测；
-- 新增 `backend/ai_backtester/routes.py`：`POST /api/ai-backtest/run` 后端接口；
-- 新增 `backend/main_ai.py`：AI 回测增强启动入口，导入原 `main.py` 后挂载 AI router；
-- 更新 `start.bat`：默认启动 `main_ai:app`；
-- 新增 `frontend/ai-backtest.js`：页面自动增加“回测”入口，并展示回测结果；
-- 更新 `frontend/index.html`：加载 `ai-backtest.js`；
-- 后端接口异常时，前端会自动 fallback 到浏览器端回测，不影响试用。
+- `backend/ai_backtester/models.py`：基金净值、信号、交易记录、资产曲线、回测结果模型；
+- `backend/ai_backtester/signals.py`：20/60 日均线、动量和回撤风控；
+- `backend/ai_backtester/engine.py`：回测引擎，已精确限制买入后的最大仓位；
+- `backend/ai_backtester/service.py`：复用 `rich_fund_data.get_fund_detail()` 获取历史净值，校验基金代码和日期；
+- `backend/ai_backtester/routes.py`：`POST /api/ai-backtest/run`；
+- `backend/ai_backtester/smoke_check.py`：不依赖真实数据源的本地冒烟检查；
+- `backend/main_ai.py`：导入原应用、挂载 AI router、提供新增静态资源，并注入可选演示模式；
+- `frontend/ai-backtest.js`：回测页面、前端 fallback、收益曲线和交易记录；
+- `frontend/demo-mode.js`、`frontend/demo-mode.css`：隐私遮挡和竖屏录制模式；
+- `start.bat`：普通启动；
+- `start-demo.bat`：视频演示启动；
+- `docs/VIDEO_DEMO_PLAN.md`：小红书 / 抖音视频内容方向。
 
-## 现在可以直接试用
+## 第一步：同步并确认分支
 
-启动方式：
-
-```text
-双击 start.bat
+```powershell
+git fetch origin
+git checkout feature/ai-fund-backtester
+git pull origin feature/ai-fund-backtester
+git status
 ```
 
-或者命令行：
+不要直接在 `main` 分支修改。
+
+## 第二步：先运行冒烟检查
+
+进入后端目录：
 
 ```powershell
 cd backend
+python -m ai_backtester.smoke_check
+```
+
+预期看到：
+
+```text
+AI backtester smoke check passed
+video demo assets: ok
+```
+
+如果失败，只修复具体导入、语法、路径或版本兼容问题，不要重构原有 MarketSim。
+
+## 第三步：启动普通模式
+
+```powershell
 python -m uvicorn main_ai:app --host 0.0.0.0 --port 8000
 ```
 
-浏览器打开：
+或者返回项目根目录双击：
+
+```text
+start.bat
+```
+
+打开：
 
 ```text
 http://127.0.0.1:8000
 ```
 
-登录后点击底部导航“回测”。
+检查：
 
-## 本地测试页面
-
-1. 启动后端；
-2. 打开页面并登录；
-3. 底部导航点击“回测”；
-4. 输入基金代码，例如 `014855`；
-5. 点击“开始回测”；
-6. 确认出现：
+1. 页面能正常打开；
+2. 注册和登录正常；
+3. 原有首页、基金、自选、模拟交易功能未被破坏；
+4. 底部导航出现“回测”；
+5. DevTools Network 中以下资源不报 404：
+   - `/app-auth.js`
+   - `/app-pages.js`
+   - `/app-final.js`
+   - `/ai-backtest.js`
+6. `POST /api/ai-backtest/run` 能正常返回；
+7. 输入 `014855` 后显示：
    - 最终资产；
    - 总收益率；
    - 最大回撤；
    - 交易次数；
    - 资产曲线；
-   - 交易记录；
+   - 回测交易记录；
    - 最近 20 个交易日资产明细。
 
-## 可选 1：将 router 直接合入 main.py
+## 第四步：异常场景测试
 
-当前为了降低风险，使用 `backend/main_ai.py` 包装原 app 并挂载 AI router。后续如果要彻底合并，可以打开：
+至少检查：
+
+- 非 6 位基金代码；
+- 开始日期晚于结束日期；
+- 日期格式错误；
+- 历史净值不足 80 条；
+- 数据源超时或暂不可用；
+- 最大仓位设置为 20%、50%、80% 时，任何一天都不能超过对应上限；
+- 后端接口失败时，前端 fallback 能给出清晰提示且不白屏。
+
+建议测试基金代码：
 
 ```text
-backend/main.py
+014855
+000001
+110022
+161725
+005827
 ```
 
-在 import 区域增加：
+不要因为某一只基金的数据源失败就改动整个数据层，优先在 `backend/ai_backtester/service.py` 做兼容。
 
-```python
-from ai_backtester.routes import router as ai_backtest_router
+## 第五步：测试视频演示模式
+
+普通演示地址：
+
+```text
+http://127.0.0.1:8000/?demo=1&fund=014855
 ```
 
-在 `app = FastAPI(...)`、CORS 配置之后增加：
+竖屏聚焦地址：
 
-```python
-app.include_router(ai_backtest_router)
+```text
+http://127.0.0.1:8000/?demo=1&fund=014855&focus=1
 ```
 
-然后把 `start.bat` 里的 `main_ai:app` 改回 `main:app`。
+自动回测地址：
 
-## 可选 2：样式微调
-
-如果表单在手机上太挤，可以在 `frontend/style.css` 增加：
-
-```css
-#aiBacktest .watch-form {
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-}
-
-#aiBacktestChart {
-  min-height: 360px;
-}
+```text
+http://127.0.0.1:8000/?demo=1&fund=014855&focus=1&autorun=1
 ```
 
-## 可选 3：关闭前端 fallback
+也可以双击：
 
-当前 `frontend/ai-backtest.js` 会先请求后端接口，失败后自动用前端规则回测。等后端接口稳定后，可以把 fallback 改成直接报错，保证所有回测都走后端。
+```text
+start-demo.bat
+```
 
-## 可选 4：升级策略
+检查：
 
-后续可以把 `signals.py` 里的规则信号升级为：
+1. 普通地址不会加载演示模式；
+2. `?demo=1` 会加载 `/demo-mode.css` 和 `/demo-mode.js`；
+3. 用户名显示为“演示账号”，不泄露真实账号；
+4. 页面标题变为“AI 基金回测实验室”；
+5. 底部只保留“回测”入口；
+6. `fund=xxxxxx` 会预填对应代码；
+7. `focus=1` 会隐藏详细交易和资产明细，突出结果卡和曲线；
+8. `autorun=1` 登录后只运行一次，不应重复请求；
+9. 浏览器宽度 430px～520px 时，页面不横向溢出；
+10. 页面始终保留“演示模式 · 非投资建议”提示。
 
-- 技术面 Agent：均线、动量、回撤、波动率；
-- 风控 Agent：最大仓位、止损、连续回撤控制；
-- 组合经理 Agent：综合信号输出买入 / 卖出 / 持有；
-- 复盘 Agent：用大模型解释每次交易原因。
+## 允许 Codex 修改的范围
+
+优先允许修改：
+
+- `backend/ai_backtester/`；
+- `backend/main_ai.py`；
+- `frontend/ai-backtest.js`；
+- `frontend/demo-mode.js`；
+- `frontend/demo-mode.css`；
+- `start.bat`；
+- `start-demo.bat`；
+- 相关说明文档。
+
+除非确有兼容问题，不要大改：
+
+- `backend/main.py`；
+- 原有数据库结构；
+- 登录系统；
+- 原有交易逻辑；
+- 原有基金详情和资讯功能。
+
+## 最后需要 Codex 输出的报告
+
+完成后请明确说明：
+
+1. Python 版本和依赖是否安装成功；
+2. 冒烟检查是否通过；
+3. 项目是否正常启动；
+4. 普通模式是否正常；
+5. AI 回测后端接口是否正常；
+6. 哪些基金代码测试成功；
+7. 哪些数据源出现失败；
+8. 演示模式是否正常；
+9. 手机竖屏是否溢出；
+10. 修改了哪些文件；
+11. 是否仍存在未解决问题；
+12. 是否建议把 `main_ai.py` 最终合入 `main.py`。
 
 ## 安全边界
 
-不要接真实券商，不要自动下单，不要绕过支付宝、天天基金、券商或任何平台风控。当前功能只用于学习和模拟研究。
+不要接真实券商，不要自动下单，不要使用真实资金，不要绕过支付宝、天天基金、券商或任何平台风控。所有页面和公开内容都应明确说明：历史回测不代表未来收益，仅供学习和模拟研究，不构成投资建议。
