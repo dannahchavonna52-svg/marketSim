@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import date, timedelta
 import math
+from pathlib import Path
 
 from .engine import run_backtest
 from .models import BacktestConfig, FundNavPoint
@@ -52,15 +53,29 @@ def run_smoke_check() -> None:
         "/api/ai-backtest/run",
         "/ai-backtest.js",
         "/app-final.js",
+        "/demo-mode.js",
+        "/demo-mode.css",
     }
     missing = sorted(required_paths - route_paths)
     assert not missing, f"missing routes: {missing}"
+
+    frontend_dir = Path(__file__).resolve().parents[2] / "frontend"
+    required_files = {
+        "ai-backtest.js",
+        "demo-mode.js",
+        "demo-mode.css",
+        "app-final.js",
+        "index.html",
+    }
+    missing_files = sorted(name for name in required_files if not (frontend_dir / name).exists())
+    assert not missing_files, f"missing frontend files: {missing_files}"
 
     print("AI backtester smoke check passed")
     print(f"equity points: {len(result.equity_curve)}")
     print(f"trades: {len(result.trades)}")
     print(f"final value: {result.final_value:.2f}")
     print(f"max drawdown: {result.max_drawdown_pct:.2f}%")
+    print("video demo assets: ok")
 
 
 if __name__ == "__main__":
