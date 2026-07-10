@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import date, datetime
 from typing import Any
+import re
 
 import rich_fund_data as fund_data
 
@@ -9,27 +10,40 @@ from .engine import run_backtest
 from .models import BacktestConfig, BacktestResult, FundNavPoint
 
 
-def _parse_date(value: str | None) -> date | None:
+def _parse_date(value: str | None, field_name: str) -> date | None:
     if not value:
         return None
     try:
         return datetime.strptime(str(value), "%Y-%m-%d").date()
-    except Exception:
-        return None
+    except Exception as exc:
+        raise ValueError(f"{field_name}格式必须为 YYYY-MM-DD") from exc
+
+
+def _clean_fund_code(value: str) -> str:
+    code = re.sub(r"\D", "", str(value or ""))
+    if len(code) != 6:
+        raise ValueError("基金代码必须是 6 位数字")
+    return code
 
 
 def _history_to_nav_points(history: list[dict[str, Any]]) -> list[FundNavPoint]:
     points: list[FundNavPoint] = []
+    seen_dates: set[date] = set()
     for item in history or []:
         raw_date = item.get("date") or item.get("trade_date") or item.get("nav_date")
         raw_nav = item.get("nav") or item.get("unit_nav") or item.get("close")
         if not raw_date or raw_nav in (None, "", "--", "-"):
             continue
         try:
+            trade_date = datetime.strptime(str(raw_date), "%Y-%m-%d").date()
+            unit_nav = float(raw_nav)
+            if unit_nav <= 0 or trade_date in seen_dates:
+                continue
+            seen_dates.add(trade_date)
             points.append(
                 FundNavPoint(
-                    trade_date=datetime.strptime(str(raw_date), "%Y-%m-%d").date(),
-                    unit_nav=float(raw_nav),
+                    trade_date=trade_date,
+                    unit_nav=unit_nav,
                     daily_return=float(item.get("change_percent") or item.get("daily_return") or 0),
                 )
             )
@@ -57,13 +71,17 @@ def run_ai_backtest_for_fund(
     stable and testable before plugging in a large language model.
     """
 
-    detail = fund_data.get_fund_detail(fund_code, refresh=refresh)
+    normalized_code = _clean_fund_code(fund_code)
+    start = _parse_date(start_date, "开始日期")
+    end = _parse_date(end_date, "结束日期")
+    if start and end and start > end:
+        raise ValueError("开始日期不能晚于结束日期")
+
+    detail = fund_data.get_fund_detail(normalized_code, refresh=refresh)
     fund = detail.get("fund") or {}
     history = fund.get("history") or []
     points = _history_to_nav_points(history)
 
-    start = _parse_date(start_date)
-    end = _parse_date(end_date)
     if start:
         points = [item for item in points if item.trade_date >= start]
     if end:
@@ -73,7 +91,7 @@ def run_ai_backtest_for_fund(
         raise ValueError("有效净值数据不足，至少建议 80 个交易日以上")
 
     config = BacktestConfig(
-        fund_code=fund_code,
+        fund_code=normalized_code,
         initial_cash=initial_cash,
         trade_amount=trade_amount,
         max_position_ratio=max_position_ratio,
@@ -83,15 +101,15 @@ def run_ai_backtest_for_fund(
     result: BacktestResult = run_backtest(points, config)
     payload = result.to_dict()
     payload["fund"] = {
-        "symbol": fund.get("symbol") or fund_code,
-        "name": fund.get("name") or f"{fund_code} 基金",
+        "symbol": fund.get("symbol") or normalized_code,
+        "name": fund.get("name") or f"{normalized_code} 基金",
         "fund_type": fund.get("fund_type") or "公募基金",
         "latest_nav": fund.get("latest_nav"),
         "daily_change": fund.get("daily_change"),
         "data_source": fund.get("data_source"),
     }
     payload["params"] = {
-        "fund_code": fund_code,
+        "fund_code": normalized_code,
         "start_date": start_date,
         "end_date": end_date,
         "initial_cash": initial_cash,
