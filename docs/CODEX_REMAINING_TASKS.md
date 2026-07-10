@@ -9,12 +9,13 @@
 - `backend/ai_backtester/engine.py`：回测引擎，已精确限制买入后的最大仓位；
 - `backend/ai_backtester/service.py`：复用 `rich_fund_data.get_fund_detail()` 获取历史净值，校验基金代码和日期；
 - `backend/ai_backtester/routes.py`：`POST /api/ai-backtest/run`；
-- `backend/ai_backtester/smoke_check.py`：不依赖真实数据源的本地冒烟检查；
+- `backend/ai_backtester/smoke_check.py`：不依赖真实基金网络请求的本地冒烟检查；
 - `backend/main_ai.py`：导入原应用、挂载 AI router、提供新增静态资源，并注入可选演示模式；
 - `frontend/ai-backtest.js`：回测页面、前端 fallback、收益曲线和交易记录；
 - `frontend/demo-mode.js`、`frontend/demo-mode.css`：隐私遮挡和竖屏录制模式；
 - `start.bat`：普通启动；
 - `start-demo.bat`：视频演示启动；
+- `check-ai.bat`：一键语法和冒烟检查；
 - `docs/VIDEO_DEMO_PLAN.md`：小红书 / 抖音视频内容方向。
 
 ## 第一步：同步并确认分支
@@ -28,9 +29,15 @@ git status
 
 不要直接在 `main` 分支修改。
 
-## 第二步：先运行冒烟检查
+## 第二步：先运行检查
 
-进入后端目录：
+最简单的方式是在项目根目录双击：
+
+```text
+check-ai.bat
+```
+
+或者进入后端目录手动执行：
 
 ```powershell
 cd backend
@@ -94,7 +101,7 @@ http://127.0.0.1:8000
 - 日期格式错误；
 - 历史净值不足 80 条；
 - 数据源超时或暂不可用；
-- 最大仓位设置为 20%、50%、80% 时，任何一天都不能超过对应上限；
+- 最大仓位设置为 20%、50%、80% 时，后端回测任何一天都不能超过对应上限；
 - 后端接口失败时，前端 fallback 能给出清晰提示且不白屏。
 
 建议测试基金代码：
@@ -108,6 +115,20 @@ http://127.0.0.1:8000
 ```
 
 不要因为某一只基金的数据源失败就改动整个数据层，优先在 `backend/ai_backtester/service.py` 做兼容。
+
+## 必须核对：前后端 fallback 风控一致性
+
+后端 `engine.py` 已经按手续费精确截断买入金额，保证买入后不突破最大仓位。
+
+Codex 需要检查 `frontend/ai-backtest.js` 中浏览器 fallback 的买入逻辑。如果 fallback 仍然只是“买入前判断当前仓位”，请把它改成与后端相同的买入金额截断公式，并增加以下验证：
+
+```text
+market_value / total_value <= max_position_ratio
+```
+
+该验证应覆盖 20%、50%、80% 三种最大仓位设置。
+
+不要删除 fallback；在真实后端稳定前，保留它可以避免演示时白屏。
 
 ## 第五步：测试视频演示模式
 
@@ -146,7 +167,8 @@ start-demo.bat
 7. `focus=1` 会隐藏详细交易和资产明细，突出结果卡和曲线；
 8. `autorun=1` 登录后只运行一次，不应重复请求；
 9. 浏览器宽度 430px～520px 时，页面不横向溢出；
-10. 页面始终保留“演示模式 · 非投资建议”提示。
+10. 页面始终保留“演示模式 · 非投资建议”提示；
+11. 打开 Performance 或观察 Network，确认演示脚本没有循环修改 DOM 或重复发起请求。
 
 ## 允许 Codex 修改的范围
 
@@ -159,6 +181,7 @@ start-demo.bat
 - `frontend/demo-mode.css`；
 - `start.bat`；
 - `start-demo.bat`；
+- `check-ai.bat`；
 - 相关说明文档。
 
 除非确有兼容问题，不要大改：
@@ -174,17 +197,18 @@ start-demo.bat
 完成后请明确说明：
 
 1. Python 版本和依赖是否安装成功；
-2. 冒烟检查是否通过；
+2. `check-ai.bat` 和冒烟检查是否通过；
 3. 项目是否正常启动；
 4. 普通模式是否正常；
 5. AI 回测后端接口是否正常；
 6. 哪些基金代码测试成功；
 7. 哪些数据源出现失败；
-8. 演示模式是否正常；
-9. 手机竖屏是否溢出；
-10. 修改了哪些文件；
-11. 是否仍存在未解决问题；
-12. 是否建议把 `main_ai.py` 最终合入 `main.py`。
+8. 后端和前端 fallback 的最大仓位是否一致；
+9. 演示模式是否正常；
+10. 手机竖屏是否溢出；
+11. 修改了哪些文件；
+12. 是否仍存在未解决问题；
+13. 是否建议把 `main_ai.py` 最终合入 `main.py`。
 
 ## 安全边界
 
