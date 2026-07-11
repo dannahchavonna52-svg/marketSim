@@ -12,6 +12,8 @@ set "PYTHONDONTWRITEBYTECODE=1"
 set "PYTHON_EXE=python"
 if exist ".venv\Scripts\python.exe" set "PYTHON_EXE=.venv\Scripts\python.exe"
 
+set "DEMO_URL=http://127.0.0.1:8000/?demo=1&fund=014855&focus=1"
+
 "%PYTHON_EXE%" --version >nul 2>nul
 if errorlevel 1 (
   echo ERROR: Python was not found. Install Python or create backend\.venv first.
@@ -19,35 +21,28 @@ if errorlevel 1 (
   exit /b 1
 )
 
-cd /d "%~dp0backend"
-
 if "%~1"=="--check" (
-  echo start.bat syntax ok
+  echo start-demo.bat syntax ok
   echo Backend path: %CD%
   echo Python: %PYTHON_EXE%
-  "%PYTHON_EXE%" -c "import sys; print(sys.version)"
+  echo Demo URL: "%DEMO_URL%"
   exit /b 0
 )
 
 netstat -ano | findstr /r /c:":8000 .*LISTENING" >nul
 if not errorlevel 1 (
-  echo.
-  echo ERROR: Port 8000 is already in use. MarketSim may already be running.
-  echo Open http://127.0.0.1:8000 or close the existing process first.
-  pause
-  exit /b 1
+  echo MarketSim is already running on port 8000.
+  echo Opening demo URL without starting another server...
+  start "" "%DEMO_URL%"
+  exit /b 0
 )
 
 echo.
-echo MarketSim Fund App is starting...
+echo MarketSim video demo is starting...
+echo Demo URL: "%DEMO_URL%"
 echo.
-echo PC URL: http://127.0.0.1:8000
-echo Phone URL: use your PC IPv4 address, for example http://192.168.1.8:8000
-echo.
-ipconfig | findstr /i "IPv4"
-echo.
-echo If the phone cannot open it, check same Wi-Fi and Windows Firewall.
-echo.
+
+start "" powershell -NoProfile -WindowStyle Hidden -Command "Start-Sleep -Seconds 3; Start-Process '%DEMO_URL%'"
 "%PYTHON_EXE%" -m uvicorn main_ai:app --host 0.0.0.0 --port 8000
 
 pause
