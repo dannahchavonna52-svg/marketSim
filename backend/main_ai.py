@@ -12,6 +12,7 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 
 from main import app, validation_exception_handler
 from ai_backtester.routes import router as ai_backtest_router
+from ai_research.routes import router as ai_research_router
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -88,3 +89,4 @@ def frontend_demo_mode_style():
 
 
 app.include_router(ai_backtest_router)
+app.include_router(ai_research_router)

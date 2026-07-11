@@ -254,6 +254,81 @@
     return { buy: "买入", sell: "卖出", hold: "持有" }[action] || action || "--";
   }
 
+  function directionText(direction) {
+    return { positive: "偏积极", neutral: "中性", negative: "偏谨慎" }[direction] || "中性";
+  }
+
+  function renderResearchAgents(items, containerId) {
+    const box = document.querySelector(containerId);
+    if (!box) return;
+    box.innerHTML = (items || []).map((item) => `
+      <article class="ai-agent-card ${escapeHtml(item.direction || "neutral")}">
+        <div class="ai-agent-head">
+          <div><strong>${escapeHtml(item.name)}</strong><span>${escapeHtml(item.role)}</span></div>
+          <b>${numberText(item.score, 1)}</b>
+        </div>
+        <p class="ai-agent-verdict">${directionText(item.direction)} · ${escapeHtml(item.summary)}</p>
+        <ul>${(item.evidence || []).slice(0, 3).map((text) => `<li>${escapeHtml(text)}</li>`).join("")}</ul>
+        ${(item.risks || []).length ? `<p class="ai-agent-risk">风险：${escapeHtml(item.risks[0])}</p>` : ""}
+        ${(item.missing_data || []).length ? `<p class="muted">缺口：${escapeHtml(item.missing_data.join("；"))}</p>` : ""}
+      </article>
+    `).join("");
+  }
+
+  function renderAiResearch(result) {
+    const fund = result.fund || {};
+    const decision = result.decision || {};
+    const summary = document.querySelector("#aiResearchSummary");
+    const meta = document.querySelector("#aiResearchMeta");
+    if (!summary || !meta) return;
+    summary.innerHTML = `
+      <div class="ai-decision-main">
+        <span>组合经理结论</span>
+        <strong>${escapeHtml(decision.action || "继续观察")}</strong>
+        <p>${escapeHtml(decision.reason || "证据不足，暂不作明显操作。")}</p>
+      </div>
+      <div class="ai-decision-score"><b>${numberText(decision.score, 1)}</b><span>综合证据分</span></div>
+      <div class="ai-decision-score"><b>${numberText(decision.confidence, 1)}%</b><span>数据置信度</span></div>
+      <div class="ai-decision-evidence">
+        <p><strong>支持：</strong>${escapeHtml((decision.supporting_evidence || []).join("；"))}</p>
+        <p><strong>反对：</strong>${escapeHtml((decision.opposing_evidence || []).join("；"))}</p>
+        <p><strong>仓位纪律：</strong>${escapeHtml(decision.position_rule || "")}</p>
+      </div>
+    `;
+    renderResearchAgents(result.agents, "#aiResearchAgents");
+    renderResearchAgents(result.style_models, "#aiStyleAgents");
+    const quality = result.data_quality || {};
+    meta.textContent = `${fund.name || fund.symbol} · ${result.method} · ${quality.history_count || 0} 条净值 · ${fund.data_source || "数据源待确认"} · 更新 ${result.updated_at || "--"}`;
+    document.querySelector("#aiResearchResult")?.classList.remove("hidden");
+  }
+
+  async function runAiResearch() {
+    const form = document.querySelector("#aiBacktestForm");
+    const code = form?.fund_code?.value.replace(/\D/g, "").slice(0, 6) || "";
+    if (!/^\d{6}$/.test(code)) {
+      pageToast("基金代码必须是 6 位数字");
+      return;
+    }
+    const button = document.querySelector("#runAiResearchBtn");
+    const status = document.querySelector("#aiResearchStatus");
+    if (button) { button.disabled = true; button.textContent = "Agent 分析中…"; }
+    if (status) { status.textContent = "正在召开多 Agent 投研会议……"; status.className = "ai-backtest-status loading"; }
+    try {
+      const result = await pageApi(`/api/ai-research/${encodeURIComponent(code)}`);
+      renderAiResearch(result);
+      if (status) {
+        const fallback = result.data_quality?.is_fallback;
+        status.textContent = fallback ? "当前使用兜底数据，结论只用于界面演示。" : "分析完成：请同时查看支持证据、反对证据和数据缺口。";
+        status.className = `ai-backtest-status ${fallback ? "warning" : "success"}`;
+      }
+    } catch (error) {
+      if (status) { status.textContent = error.message; status.className = "ai-backtest-status error"; }
+      pageToast(error.message);
+    } finally {
+      if (button) { button.disabled = false; button.textContent = "运行多 Agent 分析"; }
+    }
+  }
+
   function renderBacktestChart(result) {
     const el = document.querySelector("#aiBacktestChart");
     if (!el) return;
@@ -497,6 +572,24 @@
               <h2>AI 基金回测</h2>
               <span id="aiBacktestHint">20/60 日均线 + 回撤风控，仅供学习模拟</span>
             </div>
+            <div class="ai-research-intro">
+              <div>
+                <span>中国基金多 Agent 投研会议</span>
+                <strong>让不同分析角色先给证据，再由组合经理做结论</strong>
+              </div>
+              <button id="runAiResearchBtn" class="secondary-btn" type="button">运行多 Agent 分析</button>
+            </div>
+            <div id="aiResearchStatus" class="ai-backtest-status" role="status">先填写基金代码，再查看不同风格模型如何判断。</div>
+            <div id="aiResearchResult" class="hidden">
+              <div id="aiResearchSummary" class="ai-research-summary"></div>
+              <div class="section-subtitle">基础分析 Agent</div>
+              <div id="aiResearchAgents" class="ai-agent-grid"></div>
+              <div class="section-subtitle">中国基金经理风格模型</div>
+              <p class="muted">依据公开投资方法论抽象，不代表任何真实基金经理本人观点或背书。</p>
+              <div id="aiStyleAgents" class="ai-agent-grid style-grid"></div>
+              <p id="aiResearchMeta" class="muted"></p>
+            </div>
+            <div class="section-subtitle">历史策略验证</div>
             <form id="aiBacktestForm" class="watch-form ai-backtest-form">
               <input name="fund_code" placeholder="基金代码，如 014855 / 000001" value="014855" required />
               <input name="start_date" type="date" title="开始日期，可选" />
@@ -549,6 +642,10 @@
   });
 
   document.addEventListener("click", (event) => {
+    if (event.target.closest("#runAiResearchBtn")) {
+      runAiResearch();
+      return;
+    }
     const pageBtn = event.target.closest('#bottomNav button[data-page="aiBacktest"]');
     if (pageBtn) {
       installAiBacktestPanel();
@@ -568,6 +665,7 @@
   window.MarketSimAiBacktest = {
     runAiBacktest,
     runClientBacktest,
+    runAiResearch,
     normalizeHistory,
     maxBuyAmountByPosition,
     sellUnitsToPositionCap,

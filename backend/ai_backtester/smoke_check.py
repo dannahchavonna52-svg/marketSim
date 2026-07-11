@@ -57,6 +57,7 @@ def run_smoke_check() -> None:
     route_paths = {route.path for route in app.routes}
     required_paths = {
         "/api/ai-backtest/run",
+        "/api/ai-research/{fund_code}",
         "/ai-backtest.js",
         "/app-final.js",
         "/demo-mode.js",
