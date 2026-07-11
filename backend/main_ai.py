@@ -7,15 +7,40 @@ backtest router and an optional privacy-safe video demo mode.
 from pathlib import Path
 
 from fastapi import Request
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 
-from main import app
+from main import app, validation_exception_handler
 from ai_backtester.routes import router as ai_backtest_router
 
 
 BASE_DIR = Path(__file__).resolve().parent
 FRONTEND_DIR = BASE_DIR.parent / "frontend"
 NO_CACHE_HEADERS = {"Cache-Control": "no-store, no-cache, must-revalidate, max-age=0"}
+
+
+@app.exception_handler(RequestValidationError)
+async def ai_validation_exception_handler(request: Request, exc: RequestValidationError):
+    if not request.url.path.startswith("/api/ai-backtest"):
+        return await validation_exception_handler(request, exc)
+
+    error = exc.errors()[0] if exc.errors() else {}
+    field = next((str(item) for item in reversed(error.get("loc", ())) if item != "body"), "")
+    messages = {
+        "fund_code": "基金代码必须是 6 位数字",
+        "start_date": "开始日期格式必须为 YYYY-MM-DD",
+        "end_date": "结束日期格式必须为 YYYY-MM-DD",
+        "initial_cash": "初始资金必须大于 0",
+        "trade_amount": "单次交易金额必须大于 0",
+        "max_position_ratio": "最大仓位必须大于 0 且不超过 1",
+        "buy_fee_rate": "买入费率必须大于等于 0 且小于 1",
+        "sell_fee_rate": "卖出费率必须大于等于 0 且小于 1",
+    }
+    message = messages.get(field, "请检查回测参数格式")
+    return JSONResponse(
+        status_code=422,
+        content={"success": False, "message": f"参数错误：{message}", "data": None},
+    )
 
 
 @app.middleware("http")

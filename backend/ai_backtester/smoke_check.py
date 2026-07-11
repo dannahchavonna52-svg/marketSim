@@ -28,23 +28,29 @@ def _synthetic_nav_points(count: int = 220) -> list[FundNavPoint]:
 
 
 def run_smoke_check() -> None:
-    config = BacktestConfig(
-        fund_code="014855",
-        initial_cash=100000,
-        trade_amount=10000,
-        max_position_ratio=0.8,
-        buy_fee_rate=0.001,
-        sell_fee_rate=0.005,
-    )
-    result = run_backtest(_synthetic_nav_points(), config)
+    results = []
+    for cap in (0.2, 0.5, 0.8, 1.0):
+        config = BacktestConfig(
+            fund_code="014855",
+            initial_cash=100000,
+            trade_amount=10000,
+            max_position_ratio=cap,
+            buy_fee_rate=0.001,
+            sell_fee_rate=0.005,
+        )
+        result = run_backtest(_synthetic_nav_points(), config)
+        results.append((cap, result))
 
-    assert result.equity_curve, "equity curve should not be empty"
-    assert result.final_value > 0, "final value should be positive"
-    assert result.max_drawdown_pct <= 0, "max drawdown should not be positive"
-    for point in result.equity_curve:
-        total = point.cash + point.market_value
-        ratio = point.market_value / total if total > 0 else 0
-        assert ratio <= config.max_position_ratio + 1e-9, "position cap was exceeded"
+        assert result.equity_curve, "equity curve should not be empty"
+        assert math.isfinite(result.final_value) and result.final_value > 0
+        assert result.max_drawdown_pct <= 0, "max drawdown should not be positive"
+        dates = [point.trade_date for point in result.equity_curve]
+        assert dates == sorted(dates), "equity dates should be ascending"
+        for point in result.equity_curve:
+            total = point.cash + point.market_value
+            assert math.isclose(total, point.total_value, rel_tol=0, abs_tol=1e-7)
+            ratio = point.market_value / total if total > 0 else 0
+            assert ratio <= cap + 1e-9, f"position cap {cap:.0%} was exceeded"
 
     from main_ai import app
 
@@ -71,7 +77,9 @@ def run_smoke_check() -> None:
     assert not missing_files, f"missing frontend files: {missing_files}"
 
     print("AI backtester smoke check passed")
+    result = results[-1][1]
     print(f"equity points: {len(result.equity_curve)}")
+    print(f"position caps: {', '.join(f'{cap:.0%}' for cap, _ in results)}")
     print(f"trades: {len(result.trades)}")
     print(f"final value: {result.final_value:.2f}")
     print(f"max drawdown: {result.max_drawdown_pct:.2f}%")

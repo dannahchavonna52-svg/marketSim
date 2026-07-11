@@ -45,6 +45,24 @@
     return (current - previous) / previous;
   }
 
+  function maxBuyAmountByPosition(cash, units, nav, maxPositionRatio, buyFeeRate) {
+    const totalValue = cash + units * nav;
+    const currentMarketValue = units * nav;
+    const remainingTargetValue = maxPositionRatio * totalValue - currentMarketValue;
+    const denominator = 1 - buyFeeRate * (1 - maxPositionRatio);
+    if (remainingTargetValue <= 0 || denominator <= 0) return 0;
+    return Math.max(0, remainingTargetValue / denominator);
+  }
+
+  function sellUnitsToPositionCap(cash, units, nav, maxPositionRatio, sellFeeRate) {
+    const marketValue = units * nav;
+    const totalValue = cash + marketValue;
+    const excessValue = marketValue - maxPositionRatio * totalValue;
+    const denominator = nav * (1 - maxPositionRatio * sellFeeRate);
+    if (excessValue <= 0 || denominator <= 0) return 0;
+    return Math.min(units, Math.max(0, excessValue / denominator));
+  }
+
   function signalFor(history, shortWindow = 20, longWindow = 60, stopLossDrawdown = -0.08) {
     if (history.length < longWindow + 1) {
       return { action: "hold", confidence: 30, reasoning: "净值历史不足，暂时观望" };
@@ -97,7 +115,41 @@
       let signal = signalFor(history.slice(0, index + 1));
       const nav = point.nav;
 
-      if (signal.action === "buy") {
+      const rebalanceUnits = sellUnitsToPositionCap(
+        cash,
+        units,
+        nav,
+        maxPositionRatio,
+        sellFeeRate
+      );
+      if (rebalanceUnits > 1e-12) {
+        const grossAmount = rebalanceUnits * nav;
+        const fee = grossAmount * sellFeeRate;
+        const netAmount = grossAmount - fee;
+        cash += netAmount;
+        units -= rebalanceUnits;
+        if (units <= 1e-12) {
+          units = 0;
+          lastBuyIndex = null;
+        }
+        signal = {
+          action: "sell",
+          confidence: 90,
+          reasoning: "净值上涨使仓位超过上限，自动减持超额份额",
+        };
+        trades.push({
+          trade_date: point.date,
+          fund_code: params.fund_code,
+          action: "sell",
+          nav,
+          amount: netAmount,
+          units: rebalanceUnits,
+          fee,
+          cash_after: cash,
+          units_after: units,
+          reasoning: signal.reasoning,
+        });
+      } else if (signal.action === "buy") {
         const total = cash + units * nav;
         const positionRatio = total > 0 ? (units * nav) / total : 0;
         if (positionRatio >= maxPositionRatio) {
@@ -105,7 +157,14 @@
         } else if (cash <= 0) {
           signal = { action: "hold", confidence: 80, reasoning: "现金不足，无法买入" };
         } else {
-          const amount = Math.min(tradeAmount, cash);
+          const positionLimitAmount = maxBuyAmountByPosition(
+            cash,
+            units,
+            nav,
+            maxPositionRatio,
+            buyFeeRate
+          );
+          const amount = Math.min(tradeAmount, cash, positionLimitAmount);
           const fee = amount * buyFeeRate;
           const netAmount = Math.max(0, amount - fee);
           const boughtUnits = netAmount / nav;
@@ -275,7 +334,11 @@
     const hint = document.querySelector("#aiBacktestHint");
     if (!resultBox || !tradeBox || !curveBox) return;
 
-    hint.textContent = `${fund.name || result.fund_code} · ${result.client_side ? "前端规则回测" : "后端规则回测"}`;
+    const curve = result.equity_curve || [];
+    const firstDate = curve[0]?.trade_date || "--";
+    const lastDate = curve[curve.length - 1]?.trade_date || "--";
+    const source = fund.data_source || (result.client_side ? "基金详情接口" : "公开基金数据");
+    hint.textContent = `${fund.name || result.fund_code} · ${source} · ${curve.length} 条 · ${firstDate} 至 ${lastDate}`;
     resultBox.innerHTML = `
       <article class="metric-card"><span>最终资产</span><strong>${money(summary.final_value)}</strong></article>
       <article class="metric-card"><span>总收益率</span><strong class="${tone(summary.total_return_pct)}">${pct(summary.total_return_pct)}</strong></article>
@@ -341,7 +404,7 @@
     const form = document.querySelector("#aiBacktestForm");
     if (!form) return;
     const params = {
-      fund_code: form.fund_code.value.trim(),
+      fund_code: form.fund_code.value.replace(/\D/g, "").slice(0, 6),
       start_date: form.start_date.value || null,
       end_date: form.end_date.value || null,
       initial_cash: safeNumber(form.initial_cash.value, 100000),
@@ -351,13 +414,21 @@
       sell_fee_rate: safeNumber(form.sell_fee_rate.value, 0.5) / 100,
       refresh: form.refresh.checked,
     };
-    if (!params.fund_code) {
-      pageToast("请先填写基金代码");
+    if (!/^\d{6}$/.test(params.fund_code)) {
+      pageToast("基金代码必须是 6 位数字");
       return;
     }
 
     const runBtn = document.querySelector("#runAiBacktestBtn");
-    if (runBtn) runBtn.disabled = true;
+    const errorBox = document.querySelector("#aiBacktestError");
+    if (errorBox) {
+      errorBox.textContent = "正在获取历史净值并执行回测……";
+      errorBox.className = "ai-backtest-status loading";
+    }
+    if (runBtn) {
+      runBtn.disabled = true;
+      runBtn.textContent = "回测中…";
+    }
     try {
       pageToast("正在执行 AI 基金回测...");
       let result;
@@ -371,12 +442,29 @@
         result.fallback_notice = `后端回测接口暂未挂载，已使用前端同款规则完成回测：${backendError.message}`;
       }
       renderAiBacktest(result);
+      if (errorBox) {
+        const sourceErrors = (result.source_errors || []).map((item) =>
+          typeof item === "string" ? item : item.message || item.error || JSON.stringify(item)
+        );
+        const sourceWarning = sourceErrors.length
+          ? `部分数据源不可用：${sourceErrors.join("；")}`
+          : "回测完成。历史回测不代表未来收益。";
+        errorBox.textContent = sourceWarning;
+        errorBox.className = `ai-backtest-status ${(result.source_errors || []).length ? "warning" : "success"}`;
+      }
       if (result.fallback_notice) pageToast(result.fallback_notice);
       else pageToast("AI 基金回测完成");
     } catch (error) {
+      if (errorBox) {
+        errorBox.textContent = error.message || "当前基金历史净值暂时无法获取，请稍后重试或更换基金代码。";
+        errorBox.className = "ai-backtest-status error";
+      }
       pageToast(error.message);
     } finally {
-      if (runBtn) runBtn.disabled = false;
+      if (runBtn) {
+        runBtn.disabled = false;
+        runBtn.textContent = "开始回测";
+      }
     }
   }
 
@@ -409,7 +497,7 @@
               <h2>AI 基金回测</h2>
               <span id="aiBacktestHint">20/60 日均线 + 回撤风控，仅供学习模拟</span>
             </div>
-            <form id="aiBacktestForm" class="watch-form">
+            <form id="aiBacktestForm" class="watch-form ai-backtest-form">
               <input name="fund_code" placeholder="基金代码，如 014855 / 000001" value="014855" required />
               <input name="start_date" type="date" title="开始日期，可选" />
               <input name="end_date" type="date" title="结束日期，可选" />
@@ -421,12 +509,13 @@
               <label class="inline-check"><input name="refresh" type="checkbox" /> 刷新数据</label>
               <button id="runAiBacktestBtn" class="primary-btn" type="submit">开始回测</button>
             </form>
+            <div id="aiBacktestError" class="ai-backtest-status" role="status">填写 6 位基金代码后开始回测。</div>
             <p class="muted">当前不会修改你的模拟账户，也不会真实交易。策略先用规则跑通，后续可接 DeepSeek / Kimi / OpenAI Agent 做解释和复盘。</p>
             <div id="aiBacktestResult" class="metric-grid compact-metrics"></div>
             <div id="aiBacktestChart" class="chart"></div>
-            <div class="section-subtitle">回测交易记录</div>
+            <div id="aiBacktestTradesTitle" class="section-subtitle">回测交易记录</div>
             <div id="aiBacktestTrades" class="news-list"></div>
-            <div class="section-subtitle">最近 20 个交易日资产明细</div>
+            <div id="aiBacktestCurveTitle" class="section-subtitle">最近 20 个交易日资产明细</div>
             <div class="table-wrap compact">
               <table>
                 <thead>
@@ -467,6 +556,12 @@
     }
   });
 
+  document.addEventListener("input", (event) => {
+    if (event.target?.matches('#aiBacktestForm [name="fund_code"]')) {
+      event.target.value = event.target.value.replace(/\D/g, "").slice(0, 6);
+    }
+  });
+
   document.addEventListener("marketsim:login", installAiBacktestPanel);
   installAiBacktestPanel();
 
@@ -474,5 +569,7 @@
     runAiBacktest,
     runClientBacktest,
     normalizeHistory,
+    maxBuyAmountByPosition,
+    sellUnitsToPositionCap,
   };
 })();

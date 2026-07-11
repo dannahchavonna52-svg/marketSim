@@ -12,6 +12,13 @@ set "PYTHONDONTWRITEBYTECODE=1"
 set "PYTHON_EXE=python"
 if exist ".venv\Scripts\python.exe" set "PYTHON_EXE=.venv\Scripts\python.exe"
 
+"%PYTHON_EXE%" --version >nul 2>nul
+if errorlevel 1 (
+  echo ERROR: Python was not found. Install Python or create backend\.venv first.
+  pause
+  exit /b 1
+)
+
 cd /d "%~dp0backend"
 
 if "%~1"=="--check" (
@@ -20,6 +27,15 @@ if "%~1"=="--check" (
   echo Python: %PYTHON_EXE%
   "%PYTHON_EXE%" -c "import sys; print(sys.version)"
   exit /b 0
+)
+
+netstat -ano | findstr /r /c:":8000 .*LISTENING" >nul
+if not errorlevel 1 (
+  echo.
+  echo ERROR: Port 8000 is already in use. MarketSim may already be running.
+  echo Open http://127.0.0.1:8000 or close the existing process first.
+  pause
+  exit /b 1
 )
 
 echo.

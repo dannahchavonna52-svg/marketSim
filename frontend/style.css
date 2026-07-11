@@ -336,6 +336,31 @@ tr:last-child td {
   background: #fbfdff;
 }
 
+#aiBacktestChart {
+  min-height: 360px;
+  margin-top: 14px;
+}
+
+.ai-backtest-status {
+  margin: 10px 0 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #f8fafc;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.ai-backtest-status.loading { color: #1d4ed8; border-color: #bfdbfe; background: #eff6ff; }
+.ai-backtest-status.success { color: #166534; border-color: #bbf7d0; background: #f0fdf4; }
+.ai-backtest-status.warning { color: #92400e; border-color: #fde68a; background: #fffbeb; }
+.ai-backtest-status.error { color: #b91c1c; border-color: #fecaca; background: #fef2f2; }
+
+#runAiBacktestBtn:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
 .toast {
   position: fixed;
   left: 50%;
@@ -566,6 +591,14 @@ tr:last-child td {
 
   .chart {
     min-height: 230px;
+  }
+
+  #aiBacktestChart {
+    min-height: 320px;
+  }
+
+  #aiBacktest .table-wrap {
+    max-width: 100%;
   }
 
   .bottom-nav {

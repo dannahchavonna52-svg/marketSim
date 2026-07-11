@@ -132,10 +132,13 @@ body.video-demo-mode {
   font-weight: 800;
 }
 
-.video-focus-mode #aiBacktestTrades,
 .video-focus-mode #aiBacktestCurveBody,
-.video-focus-mode #aiBacktest .section-subtitle,
+.video-focus-mode #aiBacktestCurveTitle,
 .video-focus-mode #aiBacktest .table-wrap {
+  display: none !important;
+}
+
+.video-focus-mode #aiBacktestTrades .news-card:nth-child(n + 6) {
   display: none !important;
 }
 

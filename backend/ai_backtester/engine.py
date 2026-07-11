@@ -75,6 +75,28 @@ def _max_buy_amount_by_position(
     return max(0.0, remaining_target_value / denominator)
 
 
+def _sell_units_to_position_cap(
+    *,
+    cash: float,
+    units: float,
+    nav: float,
+    max_position_ratio: float,
+    sell_fee_rate: float,
+) -> float:
+    """Return units to sell when price movement pushes the position over cap."""
+
+    market_value = units * nav
+    total_value = cash + market_value
+    excess_value = market_value - max_position_ratio * total_value
+    if excess_value <= 0 or nav <= 0:
+        return 0.0
+
+    denominator = nav * (1 - max_position_ratio * sell_fee_rate)
+    if denominator <= 0:
+        return 0.0
+    return min(units, max(0.0, excess_value / denominator))
+
+
 def run_backtest(
     nav_points: list[FundNavPoint | dict],
     config: BacktestConfig,
@@ -112,6 +134,43 @@ def run_backtest(
         signal = moving_average_signal(history)
         nav = point.unit_nav
         action = signal.action
+
+        rebalance_units = _sell_units_to_position_cap(
+            cash=cash,
+            units=units,
+            nav=nav,
+            max_position_ratio=config.max_position_ratio,
+            sell_fee_rate=config.sell_fee_rate,
+        )
+        if rebalance_units > 1e-12:
+            gross_amount = rebalance_units * nav
+            fee = gross_amount * config.sell_fee_rate
+            net_amount = gross_amount - fee
+            cash += net_amount
+            units -= rebalance_units
+            if units <= 1e-12:
+                units = 0.0
+                last_buy_index = None
+            signal = AgentSignal(
+                action="sell",
+                confidence=90,
+                reasoning="净值上涨使仓位超过上限，自动减持超额份额",
+            )
+            trades.append(
+                TradeRecord(
+                    trade_date=point.trade_date,
+                    fund_code=config.fund_code,
+                    action="sell",
+                    nav=nav,
+                    amount=net_amount,
+                    units=rebalance_units,
+                    fee=fee,
+                    cash_after=cash,
+                    units_after=units,
+                    reasoning=signal.reasoning,
+                )
+            )
+            action = "hold"
 
         if action == "buy":
             current_ratio = _position_ratio(cash, units, nav)
