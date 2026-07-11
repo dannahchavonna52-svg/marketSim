@@ -138,6 +138,17 @@ body.video-demo-mode {
   display: none !important;
 }
 
+.video-demo-mode.video-learning-mode #bottomNav button {
+  display: none !important;
+}
+
+.video-demo-mode.video-learning-mode #bottomNav button[data-page="learning"] {
+  display: block !important;
+  min-height: 46px;
+  color: #1d4ed8;
+  font-weight: 800;
+}
+
 .video-focus-mode #aiBacktestTrades .news-card:nth-child(n + 6) {
   display: none !important;
 }

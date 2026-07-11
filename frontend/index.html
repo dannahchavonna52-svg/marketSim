@@ -7,6 +7,7 @@
     <meta name="theme-color" content="#1d4ed8" />
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="stylesheet" href="style.css?v=20260701-complete8" />
+    <link rel="stylesheet" href="/static/learning.css?v=20260711-learning1" />
     <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
   </head>
   <body>
@@ -47,6 +48,12 @@
     </section>
 
     <main id="appView" class="layout hidden">
+      <section id="learningShell" class="learning-shell page-hidden" aria-label="基金学习中心">
+        <div id="learningHome" class="learning-screen"></div>
+        <div id="learningCatalog" class="learning-screen learning-screen-hidden"></div>
+        <article id="learningDetail" class="learning-screen learning-screen-hidden"></article>
+      </section>
+
       <section id="dashboard" class="metric-grid" aria-label="账户仪表盘">
         <article class="metric-card">
           <span>总资产</span>
@@ -315,12 +322,13 @@
     </main>
 
     <nav id="bottomNav" class="bottom-nav hidden">
+      <button type="button" data-page="learning">学习</button>
       <button type="button" data-page="home">首页</button>
-      <button type="button" data-page="funds">基金</button>
+      <button type="button" data-page="funds">基金案例</button>
       <button type="button" data-page="recommend">推荐</button>
       <button type="button" data-page="mine">我的</button>
       <button type="button" data-page="news">资讯</button>
-      <button type="button" data-page="trade">交易</button>
+      <button type="button" data-page="trade">模拟训练</button>
       <button type="button" data-page="auto">自动</button>
       <button type="button" data-page="advisor">系统</button>
     </nav>
@@ -373,5 +381,7 @@
     <script src="app-pages.js?v=20260701-complete8"></script>
     <script src="app-final.js?v=20260701-complete8"></script>
     <script src="ai-backtest.js?v=20260709-ai1"></script>
+    <script src="/static/learning-content.js?v=20260711-learning1"></script>
+    <script src="/static/learning.js?v=20260711-learning1"></script>
   </body>
 </html>

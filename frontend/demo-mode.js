@@ -3,11 +3,13 @@
   if (params.get("demo") !== "1") return;
 
   const demoFundCode = params.get("fund") || "014855";
+  const demoLessonId = params.get("lesson") || "";
   const shouldAutoRun = params.get("autorun") === "1";
   const focusMode = params.get("focus") === "1";
   let autoRunTriggered = false;
 
   document.body.classList.add("video-demo-mode");
+  if (demoLessonId) document.body.classList.add("video-learning-mode");
   if (focusMode) document.body.classList.add("video-focus-mode");
 
   function setTextIfChanged(element, text) {
@@ -25,10 +27,10 @@
 
   function maskPrivateUi() {
     setTextIfChanged(document.querySelector("#userBadge"), "演示账号");
-    setTextIfChanged(document.querySelector(".app-header h1"), "AI 基金回测实验室");
+    setTextIfChanged(document.querySelector(".app-header h1"), demoLessonId ? "MarketSim 基金零基础课堂" : "AI 基金回测实验室");
     setTextIfChanged(
       document.querySelector(".app-header p"),
-      "输入基金代码，查看历史策略回测、收益曲线和回撤风险。"
+      demoLessonId ? "用短课程、真实案例和历史实验学习基金基础。" : "输入基金代码，查看历史策略回测、收益曲线和回撤风险。"
     );
   }
 
@@ -70,6 +72,10 @@
   function activateDemoPage() {
     installDemoBadge();
     maskPrivateUi();
+    if (demoLessonId) {
+      window.MarketSimLearning?.renderDetail(demoLessonId);
+      return;
+    }
     installDemoHero();
     const formReady = configureDemoForm();
 
