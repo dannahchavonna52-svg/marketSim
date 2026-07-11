@@ -348,7 +348,7 @@
     aiBacktestChart.setOption(
       {
         animation: false,
-        title: { text: "AI 基金回测资产曲线", left: 12, top: 10, textStyle: { fontSize: 14, fontWeight: 700 } },
+        title: { text: "基金历史回测资产曲线", left: 12, top: 10, textStyle: { fontSize: 14, fontWeight: 700 } },
         tooltip: {
           trigger: "axis",
           formatter(params) {
@@ -505,7 +505,7 @@
       runBtn.textContent = "回测中…";
     }
     try {
-      pageToast("正在执行 AI 基金回测...");
+      pageToast("正在执行历史回测实验...");
       let result;
       try {
         result = await pageApi("/api/ai-backtest/run", {
@@ -528,7 +528,7 @@
         errorBox.className = `ai-backtest-status ${(result.source_errors || []).length ? "warning" : "success"}`;
       }
       if (result.fallback_notice) pageToast(result.fallback_notice);
-      else pageToast("AI 基金回测完成");
+      else pageToast("历史回测实验完成");
     } catch (error) {
       if (errorBox) {
         errorBox.textContent = error.message || "当前基金历史净值暂时无法获取，请稍后重试或更换基金代码。";
@@ -569,7 +569,7 @@
         `
           <section id="${PANEL_ID}" class="panel page-hidden">
             <div class="section-title">
-              <h2>AI 基金回测</h2>
+              <h2>历史回测实验</h2>
               <span id="aiBacktestHint">20/60 日均线 + 回撤风控，仅供学习模拟</span>
             </div>
             <div class="ai-research-intro">

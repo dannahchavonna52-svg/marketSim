@@ -76,9 +76,12 @@
   }
 
   function activateLearningShell() {
+    document.body.classList.add("learning-platform-mode");
     try {
       if (typeof finalPageGroups !== "undefined") finalPageGroups.learning = ["learningShell"];
       if (typeof PAGE_GROUPS !== "undefined") PAGE_GROUPS.learning = ["learningShell"];
+      if (typeof finalPageGroups !== "undefined") finalPageGroups.mine = ["watchlist", "positions", "performance"];
+      if (typeof PAGE_GROUPS !== "undefined") PAGE_GROUPS.mine = ["watchlist", "positions", "performance"];
     } catch (error) {
       console.warn("学习页面导航注册失败", error);
     }
@@ -113,6 +116,12 @@
         </div>
       </header>
       <div class="learning-progress-bar" aria-label="已完成 ${percent}%"><span style="width:${percent}%"></span></div>
+      <ol class="learning-path" aria-label="学习方法">
+        <li><b>1</b><span><strong>学概念</strong><small>每次只学一个重点</small></span></li>
+        <li><b>2</b><span><strong>看案例</strong><small>在真实基金中找到它</small></span></li>
+        <li><b>3</b><span><strong>做实验</strong><small>用历史数据理解风险</small></span></li>
+        <li><b>4</b><span><strong>模拟复盘</strong><small>不用真实资金练习</small></span></li>
+      </ol>
       <section class="learning-next">
         <div>
           <span>下一节推荐</span>
@@ -203,6 +212,10 @@
         ${lesson.sections.map((section) => `<section><h2>${safe(section.heading)}</h2><p>${safe(section.body)}</p></section>`).join("")}
         <aside class="learning-example"><strong>${safe(lesson.example.title)}</strong><p>${safe(lesson.example.body)}</p></aside>
         <aside class="learning-misconception"><strong>常见误区</strong><p>${safe(lesson.misconception)}</p></aside>
+        <section class="learning-takeaways">
+          <h2>本课带走三句话</h2>
+          <ol>${lesson.takeaways.map((item) => `<li>${safe(item)}</li>`).join("")}</ol>
+        </section>
       </div>
       ${renderQuiz(lesson, progress)}
       <section class="learning-tool-entry">
@@ -282,6 +295,10 @@
   function openTool(page) {
     if (typeof window.showPage === "function") window.showPage(page);
     else document.querySelector(`#bottomNav button[data-page="${page}"]`)?.click();
+    if (page === "aiBacktest") {
+      const title = document.querySelector("#aiBacktest .section-title h2");
+      if (title) title.textContent = "历史回测实验";
+    }
   }
 
   function showLearningHome() {

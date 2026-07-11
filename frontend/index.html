@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>MarketSim Fund App 基金分析模拟交易</title>
+    <title>MarketSim 基金零基础学习平台</title>
     <meta name="theme-color" content="#1d4ed8" />
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="stylesheet" href="style.css?v=20260701-complete8" />
@@ -13,8 +13,8 @@
   <body>
     <header class="app-header">
       <div>
-        <h1>MarketSim Fund App 基金分析模拟交易</h1>
-        <p>基金资讯、评分和模拟交易，仅供学习研究，不构成投资建议。</p>
+        <h1>MarketSim 基金零基础学习平台</h1>
+        <p>先学概念，再看案例，用历史实验和模拟训练建立自己的分析步骤。</p>
       </div>
       <div class="header-actions">
         <span id="userBadge" class="user-badge"></span>
@@ -194,8 +194,8 @@
 
       <section id="fundSearch" class="panel">
         <div class="section-title">
-          <h2>基金搜索</h2>
-          <span id="fundSearchHint">输入代码或名称</span>
+          <h2>基金案例查询</h2>
+          <span id="fundSearchHint">输入代码或名称，练习逐项查看基金信息</span>
         </div>
         <form id="fundSearchForm" class="watch-form">
           <input id="fundKeyword" placeholder="例如 000001 / 消费 / 科技" />
@@ -206,7 +206,7 @@
 
       <section id="fundDetail" class="panel">
         <div class="section-title">
-          <h2>基金详情与评分</h2>
+          <h2>基金案例拆解</h2>
           <span>仅供学习和模拟研究，不构成投资建议</span>
         </div>
         <div id="fundDetailBody" class="detail-grid"></div>
@@ -323,14 +323,9 @@
 
     <nav id="bottomNav" class="bottom-nav hidden">
       <button type="button" data-page="learning">学习</button>
-      <button type="button" data-page="home">首页</button>
       <button type="button" data-page="funds">基金案例</button>
-      <button type="button" data-page="recommend">推荐</button>
       <button type="button" data-page="mine">我的</button>
-      <button type="button" data-page="news">资讯</button>
       <button type="button" data-page="trade">模拟训练</button>
-      <button type="button" data-page="auto">自动</button>
-      <button type="button" data-page="advisor">系统</button>
     </nav>
 
     <div id="toast" class="toast" role="status"></div>

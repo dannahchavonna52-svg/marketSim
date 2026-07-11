@@ -22,6 +22,7 @@ for (const lesson of lessons) {
   assert.ok(lesson.sections.every((section) => section.heading && section.body.length >= 40));
   assert.ok(lesson.example?.title && lesson.example?.body);
   assert.ok(lesson.misconception);
+  assert.equal(lesson.takeaways?.length, 3, `${lesson.id} must contain 3 takeaways`);
   assert.equal(lesson.quiz?.length, 2, `${lesson.id} must contain 2 questions`);
   for (const question of lesson.quiz) {
     assert.ok(question.id && question.question && question.explanation);

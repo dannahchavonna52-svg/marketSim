@@ -63,6 +63,41 @@
 
 .learning-progress-bar span { display: block; height: 100%; background: #2563eb; }
 
+.learning-path {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0 0 18px;
+  padding: 0;
+  list-style: none;
+}
+
+.learning-path li {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 11px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+}
+
+.learning-path b {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: #0f172a;
+  color: #fff;
+  font-size: 12px;
+}
+
+.learning-path span { display: grid; gap: 2px; }
+.learning-path strong { font-size: 13px; }
+.learning-path small { color: var(--muted); font-size: 11px; line-height: 1.4; }
+
 .learning-next {
   display: flex;
   align-items: center;
@@ -180,6 +215,16 @@
 .learning-misconception { border-color: #fecaca; background: #fef2f2; }
 .learning-example p, .learning-misconception p { margin: 0; line-height: 1.75; }
 
+.learning-takeaways {
+  margin: 18px 0;
+  padding: 16px !important;
+  border: 1px solid #bfdbfe;
+  border-radius: 6px;
+  background: #f8fafc;
+}
+
+.learning-takeaways ol { display: grid; gap: 8px; margin: 10px 0 0; padding-left: 22px; line-height: 1.7; }
+
 .learning-quiz { max-width: 760px; margin: 24px auto 0; padding-top: 18px; border-top: 1px solid var(--line); }
 .learning-question { margin: 14px 0; padding: 14px; border: 1px solid var(--line); border-radius: 6px; }
 .learning-question legend { padding: 0 5px; font-weight: 800; line-height: 1.5; }
@@ -220,7 +265,21 @@
 .learning-disclaimer { max-width: 760px; margin: 16px auto; color: var(--muted); font-size: 12px; line-height: 1.6; }
 .sr-status { min-height: 1px; }
 
-.bottom-nav { grid-template-columns: repeat(10, minmax(64px, 1fr)); overflow-x: auto; }
+.learning-platform-mode #apiStatus,
+.learning-platform-mode #refreshBtn,
+.learning-platform-mode #aiBacktest .ai-research-intro,
+.learning-platform-mode #aiResearchStatus,
+.learning-platform-mode #aiResearchResult,
+.learning-platform-mode #aiBacktestForm + #aiBacktestError + .muted {
+  display: none !important;
+}
+
+.bottom-nav { grid-template-columns: repeat(5, minmax(64px, 1fr)); overflow-x: auto; }
+#bottomNav button[data-page="learning"] { order: 1; }
+#bottomNav button[data-page="funds"] { order: 2; }
+#bottomNav button[data-page="aiBacktest"] { order: 3; }
+#bottomNav button[data-page="trade"] { order: 4; }
+#bottomNav button[data-page="mine"] { order: 5; }
 
 @media (max-width: 760px) {
   .layout { padding-bottom: 82px; }
@@ -229,6 +288,7 @@
   .learning-hero h1, .learning-page-head h1 { font-size: 23px; }
   .learning-progress-summary { min-width: 0; grid-template-columns: auto 1fr; align-items: center; gap: 10px; text-align: left; }
   .learning-next { align-items: stretch; flex-direction: column; }
+  .learning-path { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .learning-home-actions, .learning-course-grid { grid-template-columns: 1fr; }
   .learning-page-head { grid-template-columns: 1fr; }
   .learning-article p { font-size: 15px; }
@@ -236,12 +296,6 @@
   .learning-quiz-actions, .learning-complete-actions { align-items: stretch; flex-direction: column; }
   .learning-quiz-actions button, .learning-complete-actions button { width: 100%; min-height: 46px; }
 
-  #bottomNav button { display: none; }
-  #bottomNav button[data-page="learning"],
-  #bottomNav button[data-page="funds"],
-  #bottomNav button[data-page="aiBacktest"],
-  #bottomNav button[data-page="trade"],
-  #bottomNav button[data-page="mine"] { display: block; }
   #bottomNav { grid-template-columns: repeat(5, minmax(0, 1fr)); overflow: visible; }
   #bottomNav button[data-page="learning"] { order: 1; }
   #bottomNav button[data-page="funds"] { order: 2; }
